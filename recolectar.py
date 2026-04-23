@@ -4,9 +4,12 @@ from datetime import datetime, timezone
 import os
 import time
 import schedule
+import base64
 
-API_KEY = os.environ.get("TOMTOM_API_KEY", "")
-OUTPUT_FILE = "data/incidentes.csv"
+API_KEY      = os.environ.get("TOMTOM_API_KEY", "")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO  = "wgonzales1/Incidentes_Antofagasta"
+OUTPUT_FILE  = "data/incidentes.csv"
 
 ZONAS = {
     "Antofagasta": {"bbox": (-70.45, -23.75, -70.35, -23.55), "region_codigo": 2},
@@ -156,9 +159,45 @@ def aplicar_schema(df):
             pass
     return df
 
+def exportar_a_github():
+    if not GITHUB_TOKEN:
+        print("  ⚠️ Sin GITHUB_TOKEN, saltando exportación")
+        return
+    try:
+        with open(OUTPUT_FILE, "rb") as f:
+            contenido = base64.b64encode(f.read()).decode()
+
+        headers = {
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/data/incidentes.csv"
+
+        # Obtener SHA del archivo actual en GitHub
+        r = requests.get(url, headers=headers)
+        sha = r.json().get("sha", "") if r.status_code == 200 else ""
+
+        payload = {
+            "message": f"datos {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+            "content": contenido,
+            "sha": sha
+        }
+        r = requests.put(url, headers=headers, json=payload)
+        if r.status_code in (200, 201):
+            print(f"  📤 CSV exportado a GitHub ({r.status_code})")
+        else:
+            print(f"  ⚠️ Error exportando a GitHub: {r.status_code} {r.text[:200]}")
+    except Exception as e:
+        print(f"  ⚠️ Excepción exportando: {e}")
+
+# Contador de ciclos para exportar cada 6 ciclos (≈2 horas)
+ciclo = 0
+
 def recolectar():
+    global ciclo
+    ciclo += 1
     ts = datetime.now(timezone.utc)
-    print(f"[{ts.strftime('%Y-%m-%d %H:%M:%S')}] Consultando API...")
+    print(f"[{ts.strftime('%Y-%m-%d %H:%M:%S')}] Ciclo {ciclo} — Consultando API...")
 
     nuevos = []
     for nombre_zona, config in ZONAS.items():
@@ -182,13 +221,18 @@ def recolectar():
     df_total.to_csv(OUTPUT_FILE, index=False)
     print(f"  Total guardado: {len(df_total)} filas")
 
-# Correr inmediatamente al iniciar
+    # Exportar a GitHub cada 6 ciclos (~2 horas)
+    if ciclo % 6 == 0:
+        print("  Exportando a GitHub...")
+        exportar_a_github()
+
+# Correr inmediatamente
 recolectar()
 
 # Programar cada 20 minutos
 schedule.every(20).minutes.do(recolectar)
 
-print("Scheduler activo. Recolectando cada 20 minutos...")
+print("Scheduler activo. Recolectando cada 20 minutos, exportando a GitHub cada 2 horas...")
 while True:
     schedule.run_pending()
     time.sleep(1)
