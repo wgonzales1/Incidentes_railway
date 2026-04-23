@@ -222,7 +222,7 @@ def recolectar():
     print(f"  Total guardado: {len(df_total)} filas")
 
     # Exportar a GitHub cada 6 ciclos (~2 horas)
-    if ciclo % 1 == 0:
+    if ciclo % 6 == 0:
         print("  Exportando a GitHub...")
         exportar_a_github()
 
@@ -230,7 +230,7 @@ def recolectar():
 recolectar()
 
 # Programar cada 20 minutos
-schedule.every(5).minutes.do(recolectar)
+schedule.every(20).minutes.do(recolectar)
 
 print("Scheduler activo. Recolectando cada 20(5) minutos, exportando a GitHub cada 2(5min) horas...")
 while True:
