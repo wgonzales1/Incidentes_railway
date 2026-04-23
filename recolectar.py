@@ -8,7 +8,7 @@ import base64
 
 API_KEY      = os.environ.get("TOMTOM_API_KEY", "")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-GITHUB_REPO  = "wgonzales1/Incidentes_Antofagasta"
+GITHUB_REPO  = "wgonzales1/Incidentes_railway"
 OUTPUT_FILE  = "data/incidentes.csv"
 
 ZONAS = {
